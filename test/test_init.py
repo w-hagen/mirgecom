@@ -26,8 +26,7 @@ import logging
 import numpy as np
 import numpy.linalg as la  # noqa
 import pyopencl as cl
-import pyopencl.clrandom
-import pyopencl.clmath
+
 from meshmode.mesh import BTAG_ALL, BTAG_NONE  # noqa
 from meshmode.array_context import PyOpenCLArrayContext
 from meshmode.dof_array import thaw
@@ -42,7 +41,7 @@ from grudge.eager import EagerDGDiscretization
 from pyopencl.tools import (  # noqa
     pytest_generate_tests_for_pyopencl as pytest_generate_tests,
 )
-
+from pytools.obj_array import make_obj_array
 
 def test_lump_init(ctx_factory):
     """
@@ -50,7 +49,8 @@ def test_lump_init(ctx_factory):
     creates the expected solution field.
     """
     cl_ctx = ctx_factory()
-    actx = PyOpenCLArrayContext(cl_ctx)
+    queue = cl.CommandQueue(cl_ctx)
+    actx = PyOpenCLArrayContext(queue)
 
     logger = logging.getLogger(__name__)
 
@@ -77,12 +77,12 @@ def test_lump_init(ctx_factory):
     lump = Lump(center=center, velocity=velocity)
     lump_soln = lump(0, nodes)
 
-    mass = split_conserved(dim, lump_soln).mass
-    energy = split_conserved(dim, lump_soln).energy
-    mom = split_conserved(dim, lump_soln).momentum
-    p = 0.4 * (energy - 0.5 * np.dot(mom, mom) / mass)
-    exp_p = 1.0
-    errmax = np.max(np.abs(p - exp_p))
+    eos = IdealSingleGas()
+    p = eos.pressure(lump_soln)
+    expected_p = 1.0
+
+    pdiff = np.abs((p - make_obj_array([expected_p])))
+    errmax = discr.norm(pdiff,p=np.inf)
 
     logger.info(f"lump_soln = {lump_soln}")
     logger.info(f"pressure = {p}")
@@ -96,7 +96,8 @@ def test_vortex_init(ctx_factory):
     creates the expected solution field.
     """
     cl_ctx = ctx_factory()
-    actx = PyOpenCLArrayContext(cl_ctx)
+    queue = cl.CommandQueue(cl_ctx)
+    actx = PyOpenCLArrayContext(queue)
 
     logger = logging.getLogger(__name__)
 
@@ -120,11 +121,12 @@ def test_vortex_init(ctx_factory):
     vortex_soln = vortex(0, nodes)
     gamma = 1.4
     mass = split_conserved(dim, vortex_soln).mass
-    energy = split_conserved(dim, vortex_soln).energy
-    mom = split_conserved(dim, vortex_soln).momentum
-    p = 0.4 * (energy - 0.5 * np.dot(mom, mom) / mass)
+    eos = IdealSingleGas()
+    p = eos.pressure(vortex_soln)
+
     exp_p = mass ** gamma
-    errmax = np.max(np.abs(p - exp_p))
+    pdiff = p - exp_p
+    errmax = discr.norm(pdiff,p=np.inf)
 
     logger.info(f"vortex_soln = {vortex_soln}")
     logger.info(f"pressure = {p}")
@@ -133,8 +135,9 @@ def test_vortex_init(ctx_factory):
 
 
 def test_shock_init(ctx_factory):
-    cl_ctx = cl.create_some_context()
-    actx = PyOpenCLArrayContext(cl_ctx)
+    cl_ctx = ctx_factory()
+    queue = cl.CommandQueue(cl_ctx)
+    actx = PyOpenCLArrayContext(queue)
 
     nel_1d = 10
     dim = 2

@@ -82,15 +82,15 @@ class Vortex2D:
         y_rel = x_vec[1] - vortex_loc[1]
 
         gamma = eos.gamma()
-        r = actx.np.sqrt(x_rel ** 2 + y_rel ** 2)
-        expterm = self._beta * actx.np.exp(1 - r ** 2)
-        u = self._velocity[0] - expterm * y_rel / (2 * np.pi)
-        v = self._velocity[1] + expterm * x_rel / (2 * np.pi)
-        mass = (1 - (gamma - 1) / (16 * gamma * np.pi ** 2)
-                * expterm ** 2) ** (1 / (gamma - 1))
+        r = actx.np.sqrt(x_rel ** 2.0 + y_rel ** 2.0)
+        expterm = self._beta * actx.np.exp(1.0 - r ** 2.0)
+        u = self._velocity[0] - expterm * y_rel / (2.0 * np.pi)
+        v = self._velocity[1] + expterm * x_rel / (2.0 * np.pi)
+        mass = (1.0 - (gamma - 1.0) / (16.0 * gamma * np.pi ** 2.0)
+                * expterm ** 2.0) ** (1.0 / (gamma - 1.0))
         p = mass ** gamma
 
-        e = p / (gamma - 1) + mass / 2 * (u ** 2 + v ** 2)
+        e = p / (gamma - 1.0) + mass / 2.0 * (u ** 2.0 + v ** 2.0)
 
         return flat_obj_array(mass, e, mass * u, mass * v)
 
@@ -151,12 +151,15 @@ class SodShock1D:
 
         zeros = actx.zeros(shape=x_rel.shape, dtype=np.float64)
 
-        rhor = zeros + self._rhor
-        rhol = zeros + self._rhol
-        energyl = zeros + gmn1 * self._energyl
-        energyr = zeros + gmn1 * self._energyr
-        mass = actx.if_positive((x_rel - self._x0), rhor, rhol)
-        energy = actx.if_positive((x_rel - self._x0), energyr, energyl)
+        rhor = zeros + make_obj_array([self._rhor])
+        rhol = zeros + make_obj_array([self._rhol])
+        energyl = zeros + make_obj_array([gmn1 * self._energyl])
+        energyr = zeros + make_obj_array([gmn1 * self._energyr])
+        x0obj = make_obj_array([self._x0])
+        xrel = x_rel - x0obj
+
+        mass = actx.if_positive(x_rel, rhor, rhol)
+        energy = actx.if_positive(x_rel, energyr, energyl)
         mom = make_obj_array(
             [
                 actx.zeros(shape=x_rel.shape, dtype=np.float64)

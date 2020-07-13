@@ -24,7 +24,10 @@ THE SOFTWARE.
 
 import numpy as np
 import numpy.linalg as la  # noqa
-from pytools.obj_array import flat_obj_array
+from pytools.obj_array import (
+    flat_obj_array,
+    make_obj_array
+)
 from meshmode.mesh import BTAG_ALL, BTAG_NONE  # noqa
 
 
@@ -197,7 +200,7 @@ class IdealSingleGas:
 
             p = (\gamma - 1)e
         """
-        return (self._gamma - 1.0) * self.internal_energy(w)
+        return self.internal_energy(w) * make_obj_array([self._gamma - 1.0])
 
     def sound_speed(self, w):
         r"""Speed of sound
