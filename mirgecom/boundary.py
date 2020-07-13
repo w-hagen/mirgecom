@@ -23,6 +23,7 @@ THE SOFTWARE.
 """
 
 from meshmode.mesh import BTAG_ALL, BTAG_NONE  # noqa
+from meshmode.dof_array import thaw
 from mirgecom.eos import IdealSingleGas
 from grudge.symbolic.primitives import TracePair
 
@@ -37,10 +38,10 @@ class PrescribedBoundary:
     def boundary_pair(
             self, discr, w, t=0.0, btag=BTAG_ALL, eos=IdealSingleGas()
     ):
-        queue = w[0].queue
+        actx = w[0].array_context
 
         boundary_discr = discr.discr_from_dd(btag)
-        nodes = boundary_discr.nodes().with_queue(queue)
+        nodes = thaw(actx, boundary_discr.nodes())
         ext_soln = self._userfunc(t, nodes)
         int_soln = discr.interp("vol", btag, w)
         return TracePair(btag, int_soln, ext_soln)

@@ -28,8 +28,7 @@ from pytools.obj_array import (
     flat_obj_array,
     make_obj_array,
 )
-import pyopencl.array as clarray
-import pyopencl.clmath as clmath
+from meshmode.dof_array import thaw
 from mirgecom.eos import IdealSingleGas
 
 
@@ -77,14 +76,14 @@ class Vortex2D:
 
     def __call__(self, t, x_vec, eos=IdealSingleGas()):
         vortex_loc = self._center + t * self._velocity
-
+        actx = x_vec[0].array_context
         # coordinates relative to vortex center
         x_rel = x_vec[0] - vortex_loc[0]
         y_rel = x_vec[1] - vortex_loc[1]
 
         gamma = eos.gamma()
-        r = clmath.sqrt(x_rel ** 2 + y_rel ** 2)
-        expterm = self._beta * clmath.exp(1 - r ** 2)
+        r = actx.np.sqrt(x_rel ** 2 + y_rel ** 2)
+        expterm = self._beta * actx.np.exp(1 - r ** 2)
         u = self._velocity[0] - expterm * y_rel / (2 * np.pi)
         v = self._velocity[1] + expterm * x_rel / (2 * np.pi)
         mass = (1 - (gamma - 1) / (16 * gamma * np.pi ** 2)
@@ -148,19 +147,19 @@ class SodShock1D:
         gm1 = eos.gamma() - 1.0
         gmn1 = 1.0 / gm1
         x_rel = x_vec[0]
-        queue = x_rel.queue
+        actx = x_rel.array_context
 
-        zeros = clarray.zeros(queue, shape=x_rel.shape, dtype=np.float64)
+        zeros = actx.zeros(shape=x_rel.shape, dtype=np.float64)
 
         rhor = zeros + self._rhor
         rhol = zeros + self._rhol
         energyl = zeros + gmn1 * self._energyl
         energyr = zeros + gmn1 * self._energyr
-        mass = clarray.if_positive((x_rel - self._x0), rhor, rhol)
-        energy = clarray.if_positive((x_rel - self._x0), energyr, energyl)
+        mass = actx.if_positive((x_rel - self._x0), rhor, rhol)
+        energy = actx.if_positive((x_rel - self._x0), energyr, energyl)
         mom = make_obj_array(
             [
-                clarray.zeros(queue, shape=x_rel.shape, dtype=np.float64)
+                actx.zeros(shape=x_rel.shape, dtype=np.float64)
                 for i in range(self._dim)
             ]
         )
@@ -250,14 +249,15 @@ class Lump:
     def __call__(self, t, x_vec, eos=IdealSingleGas()):
         lump_loc = self._center + t * self._velocity
         assert len(x_vec) == self._dim
+        actx = x_vec[0].array_context
         # coordinates relative to lump center
         rel_center = make_obj_array(
             [x_vec[i] - lump_loc[i] for i in range(self._dim)]
         )
-        r = clmath.sqrt(np.dot(rel_center, rel_center))
+        r = actx.np.sqrt(np.dot(rel_center, rel_center))
 
         gamma = eos.gamma()
-        expterm = self._rhoamp * clmath.exp(1 - r ** 2)
+        expterm = self._rhoamp * actx.np.exp(1 - r ** 2)
         mass = expterm + self._rho0
         mom = self._velocity * make_obj_array([mass])
         energy = (self._p0 / (gamma - 1.0)) + np.dot(mom, mom) / (2.0 * mass)
@@ -265,20 +265,20 @@ class Lump:
         return flat_obj_array(mass, energy, mom)
 
     def exact_rhs(self, discr, w, t=0.0):
-        queue = w[0].queue
-        nodes = discr.nodes().with_queue(queue)
+        actx = w[0].array_context
+        nodes = thaw(actx, discr.nodes())
         lump_loc = self._center + t * self._velocity
         # coordinates relative to lump center
         rel_center = make_obj_array(
             [nodes[i] - lump_loc[i] for i in range(self._dim)]
         )
-        r = clmath.sqrt(np.dot(rel_center, rel_center))
+        r = actx.np.sqrt(np.dot(rel_center, rel_center))
 
         # The expected rhs is:
         # rhorhs  = -2*rho*(r.dot.v)
         # rhoerhs = -rho*v^2*(r.dot.v)
         # rhovrhs = -2*rho*(r.dot.v)*v
-        expterm = self._rhoamp * clmath.exp(1 - r ** 2)
+        expterm = self._rhoamp * actx.np.exp(1 - r ** 2)
         mass = expterm + self._rho0
 
         v = self._velocity * make_obj_array([1.0 / mass])
@@ -341,8 +341,8 @@ class Uniform:
         return flat_obj_array(mass, energy, mom)
 
     def exact_rhs(self, discr, w, t=0.0):
-        queue = w[0].queue
-        nodes = discr.nodes().with_queue(queue)
+        actx = w[0].array_context
+        nodes = thaw(actx, discr.nodes())
         mass = nodes[0].copy()
         mass[:] = 1.0
         massrhs = 0.0 * mass

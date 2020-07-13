@@ -27,15 +27,12 @@ import numpy.linalg as la  # noqa
 from pytools.obj_array import (
     flat_obj_array,
     make_obj_array,
-    with_object_array_or_scalar,
 )
-import pyopencl.clmath as clmath
-import pyopencl.array as clarray
+from meshmode.dof_array import thaw
 from meshmode.mesh import BTAG_ALL, BTAG_NONE  # noqa
 from mirgecom.eos import IdealSingleGas
 
-from grudge.eager import with_queue
-from grudge.symbolic.primitives import TracePair
+from grudge.eager import interior_trace_pair
 from dataclasses import dataclass
 
 
@@ -138,14 +135,6 @@ def split_species(dim, w):
     return MassFractions(massfractions=w[sindex:sindex+numscalar])
 
 
-def _interior_trace_pair(discr, vec):
-    i = discr.interp("vol", "int_faces", vec)
-    e = with_object_array_or_scalar(
-        lambda el: discr.opposite_face_connection()(el.queue, el), i
-    )
-    return TracePair("int_faces", i, e)
-
-
 def _inviscid_flux(discr, q, eos=IdealSingleGas()):
     r"""Computes the inviscid flux vectors from flow solution *q*
 
@@ -180,11 +169,12 @@ def _get_wavespeed(dim, w, eos=IdealSingleGas()):
     """Returns the maximum wavespeed in for flow solution *w*"""
     mass = split_conserved(dim, w).mass
     mom = split_conserved(dim, w).momentum
+    actx = mass.array_context
 
     v = mom * make_obj_array([1.0 / mass])
 
     sos = eos.sound_speed(w)
-    return clmath.sqrt(np.dot(v, v)) + sos
+    return actx.np.sqrt(np.dot(v, v)) + sos
 
 
 def _facial_flux(discr, w_tpair, eos=IdealSingleGas()):
@@ -195,7 +185,9 @@ def _facial_flux(discr, w_tpair, eos=IdealSingleGas()):
     energy = split_conserved(dim, w_tpair).energy
     mom = split_conserved(dim, w_tpair).momentum
 
-    normal = with_queue(mass.int.queue, discr.normal(w_tpair.dd))
+    actx = mass.int.array_context
+
+    normal = thaw(actx, discr.normal(w_tpair.dd))
 
     # Get inviscid fluxes [rhoV (rhoE + p)V (rhoV.x.V + p*I) ]
     qint = flat_obj_array(mass.int, energy.int, mom.int)
@@ -213,7 +205,7 @@ def _facial_flux(discr, w_tpair, eos=IdealSingleGas()):
     # wavespeeds = [ wavespeed_int, wavespeed_ext ]
     wavespeeds = [_get_wavespeed(dim, qint), _get_wavespeed(dim, qext)]
 
-    lam = clarray.maximum(wavespeeds[0], wavespeeds[1])
+    lam = actx.np.maximum(wavespeeds[0], wavespeeds[1])
     lfr = qjump * make_obj_array([0.5 * lam])
 
     # Surface fluxes should be inviscid flux .dot. normal
@@ -252,7 +244,7 @@ def inviscid_operator(
     )
 
     interior_face_flux = _facial_flux(
-        discr, w_tpair=_interior_trace_pair(discr, w), eos=eos
+        discr, w_tpair=interior_trace_pair(discr, w), eos=eos
     )
 
     # Domain boundaries

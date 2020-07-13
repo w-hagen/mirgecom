@@ -25,7 +25,6 @@ THE SOFTWARE.
 import numpy as np
 import numpy.linalg as la  # noqa
 from pytools.obj_array import flat_obj_array
-import pyopencl.clmath as clmath
 from meshmode.mesh import BTAG_ALL, BTAG_NONE  # noqa
 
 
@@ -210,9 +209,10 @@ class IdealSingleGas:
             c = \sqrt{\frac{\gamma{p}}{\rho}}
         """
         mass = w[0]
+        actx = mass.array_context
         p = self.pressure(w)
         c2 = self._gamma / mass * p
-        return clmath.sqrt(c2)
+        return actx.np.sqrt(c2)
 
     def temperature(self, w):
         r"""Gas temperature
