@@ -35,4 +35,3 @@ else
     printf "Errors detected (${exitcode}).\n"
     exit $exitcode
 fi
-#rm -f examples/*.vtu
