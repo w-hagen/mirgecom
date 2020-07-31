@@ -24,11 +24,14 @@ THE SOFTWARE.
 import math
 import pytest
 import numpy as np
+import pyopencl as cl
 
 from grudge.eager import EagerDGDiscretization
 from pyopencl.tools import (  # noqa
     pytest_generate_tests_for_pyopencl as pytest_generate_tests,
 )
+from meshmode.array_context import PyOpenCLArrayContext
+from meshmode.dof_array import thaw  # noqa
 from mirgecom.filter import get_spectral_filter
 
 
@@ -38,10 +41,13 @@ from mirgecom.filter import get_spectral_filter
 def test_filter_coeff(ctx_factory, cutoff, dim, order):
     """
     Tests that the filter coefficients have the right shape
-    and a quick sanity check on the values at the filter
-    band limits.
+    and a quick check that the values at the filter
+    band limits have the expected values.
     """
     cl_ctx = ctx_factory()
+    queue = cl.CommandQueue(cl_ctx)
+    actx = PyOpenCLArrayContext(queue)
+
     nel_1d = 16
 
     from meshmode.mesh.generation import generate_regular_rect_mesh
@@ -50,7 +56,7 @@ def test_filter_coeff(ctx_factory, cutoff, dim, order):
         a=(-0.5,) * dim, b=(0.5,) * dim, n=(nel_1d,) * dim
     )
 
-    discr = EagerDGDiscretization(cl_ctx, mesh, order=order)
+    discr = EagerDGDiscretization(actx, mesh, order=order)
     vol_discr = discr.discr_from_dd("vol")
 
     # number of polynomials

@@ -28,8 +28,7 @@ from pytools.obj_array import (
     flat_obj_array,
     make_obj_array,
 )
-import pyopencl.array as clarray
-import pyopencl.clmath as clmath
+from meshmode.dof_array import thaw
 from mirgecom.eos import IdealSingleGas
 
 
@@ -38,17 +37,18 @@ class Vortex2D:
         - Y.C. Zhou, G.W. Wei / Journal of Computational Physics 189 (2003) 159
           (https://doi.org/10.1016/S0021-9991(03)00206-7)
         - JSH/TW Nodal DG Methods, p. 209
+          DOI: 10.1007/978-0-387-72067-8
 
     The isentropic vortex is defined by:
 
-    .. :math::
+    .. math::
 
-        u = u_0 - \beta\exp^{(1-r^2)}\frac{y - y_0}{2\pi}\\
-        v = v_0 + \beta\exp^{(1-r^2)}\frac{x - x_0}{2\pi}\\
-        \rho =
-        ( 1 - (\frac{\gamma - 1}{16\gamma\pi^2})\beta^2
-        \exp^{2(1-r^2)})^{\frac{1}{\gamma-1}}\\
-        p = \rho^{\gamma}
+         u = u_0 - \beta\exp^{(1-r^2)}\frac{y - y_0}{2\pi}\\
+         v = v_0 + \beta\exp^{(1-r^2)}\frac{x - x_0}{2\pi}\\
+         \rho =
+         ( 1 - (\frac{\gamma - 1}{16\gamma\pi^2})\beta^2
+         \exp^{2(1-r^2)})^{\frac{1}{\gamma-1}}\\
+         p = \rho^{\gamma}
 
     A call to this object after creation/init creates
     the isentropic vortex solution at a given time (t)
@@ -81,10 +81,10 @@ class Vortex2D:
         # coordinates relative to vortex center
         x_rel = x_vec[0] - vortex_loc[0]
         y_rel = x_vec[1] - vortex_loc[1]
-
+        actx = x_vec[0].array_context
         gamma = eos.gamma()
-        r = clmath.sqrt(x_rel ** 2 + y_rel ** 2)
-        expterm = self._beta * clmath.exp(1 - r ** 2)
+        r = actx.np.sqrt(x_rel ** 2 + y_rel ** 2)
+        expterm = self._beta * actx.np.exp(1 - r ** 2)
         u = self._velocity[0] - expterm * y_rel / (2 * np.pi)
         v = self._velocity[1] + expterm * x_rel / (2 * np.pi)
         mass = (1 - (gamma - 1) / (16 * gamma * np.pi ** 2)
@@ -102,13 +102,13 @@ class SodShock1D:
 
     The Sod Shock setup is defined by:
 
-    .. :math::
+    .. math::
 
-    {\rho}(x < x_0, 0) = \rho_l\\
-    {\rho}(x > x_0, 0) = \rho_r\\
-    {\rho}{V_x}(x, 0) = 0
-    {\rho}E(x < x_0, 0) = \frac{1}{\gamma - 1}
-    {\rho}E(x > x_0, 0) = \frac{.1}{\gamma - 1}
+         {\rho}(x < x_0, 0) = \rho_l\\
+         {\rho}(x > x_0, 0) = \rho_r\\
+         {\rho}{V_x}(x, 0) = 0
+         {\rho}E(x < x_0, 0) = \frac{1}{\gamma - 1}
+         {\rho}E(x > x_0, 0) = \frac{.1}{\gamma - 1}
 
     A call to this object after creation/init creates
     Sod's shock solution at a given time (t)
@@ -117,7 +117,7 @@ class SodShock1D:
     """
 
     def __init__(
-            self, dim=2, x0=0.5, rhol=1.0, rhor=0.125, pleft=1.0, pright=0.1,
+            self, dim=2, xdir=0, x0=0.5, rhol=1.0, rhor=0.125, pleft=1.0, pright=0.1,
     ):
         """Initialize shock parameters
 
@@ -143,24 +143,29 @@ class SodShock1D:
         self._energyl = pleft
         self._energyr = pright
         self._dim = dim
+        self._xdir = xdir
+        if self._xdir >= self._dim:
+            self._xdir = self._dim - 1
 
     def __call__(self, t, x_vec, eos=IdealSingleGas()):
         gm1 = eos.gamma() - 1.0
         gmn1 = 1.0 / gm1
-        x_rel = x_vec[0]
-        queue = x_rel.queue
+        x_rel = x_vec[self._xdir]
+        actx = x_rel.array_context
 
-        zeros = clarray.zeros(queue, shape=x_rel.shape, dtype=np.float64)
+        zeros = 0*x_rel
 
         rhor = zeros + self._rhor
         rhol = zeros + self._rhol
+        x0 = zeros + self._x0
         energyl = zeros + gmn1 * self._energyl
         energyr = zeros + gmn1 * self._energyr
-        mass = clarray.if_positive((x_rel - self._x0), rhor, rhol)
-        energy = clarray.if_positive((x_rel - self._x0), energyr, energyl)
+        yesno = x_rel > x0
+        mass = actx.np.where(yesno, rhor, rhol)
+        energy = actx.np.where(yesno, energyr, energyl)
         mom = make_obj_array(
             [
-                clarray.zeros(queue, shape=x_rel.shape, dtype=np.float64)
+                0*x_rel
                 for i in range(self._dim)
             ]
         )
@@ -173,11 +178,11 @@ class Lump:
 
     The Gaussian lump is defined by:
 
-    .. :math::
+    .. math::
 
-        {\rho}(r) = {\rho}_{0} + {\rho}_{a}\exp^{(1-r^{2})}\\
-        {\rho}\vec{V} = {\rho}(r)\vec{V_0}\\
-        {\rho}E = (\frac{p_0}{(\gamma - 1)} + \frac{1}{2}\rho{|V_0|}^2
+         {\rho}(r) = {\rho}_{0} + {\rho}_{a}\exp^{(1-r^{2})}\\
+         {\rho}\vec{V} = {\rho}(r)\vec{V_0}\\
+         {\rho}E = (\frac{p_0}{(\gamma - 1)} + \frac{1}{2}\rho{|V_0|}^2
 
     Where :math:`V_0` is the fixed velocity specified
     by the user at init time, and :math:`\gamma` is taken
@@ -254,31 +259,32 @@ class Lump:
         rel_center = make_obj_array(
             [x_vec[i] - lump_loc[i] for i in range(self._dim)]
         )
-        r = clmath.sqrt(np.dot(rel_center, rel_center))
+        actx = x_vec[0].array_context
+        r = actx.np.sqrt(np.dot(rel_center, rel_center))
 
         gamma = eos.gamma()
-        expterm = self._rhoamp * clmath.exp(1 - r ** 2)
+        expterm = self._rhoamp * actx.np.exp(1 - r ** 2)
         mass = expterm + self._rho0
         mom = self._velocity * make_obj_array([mass])
         energy = (self._p0 / (gamma - 1.0)) + np.dot(mom, mom) / (2.0 * mass)
 
         return flat_obj_array(mass, energy, mom)
 
-    def exact_rhs(self, discr, w, t=0.0):
-        queue = w[0].queue
-        nodes = discr.nodes().with_queue(queue)
+    def exact_rhs(self, discr, q, t=0.0):
+        actx = q[0].array_context
+        nodes = thaw(actx, discr.nodes())
         lump_loc = self._center + t * self._velocity
         # coordinates relative to lump center
         rel_center = make_obj_array(
             [nodes[i] - lump_loc[i] for i in range(self._dim)]
         )
-        r = clmath.sqrt(np.dot(rel_center, rel_center))
+        r = actx.np.sqrt(np.dot(rel_center, rel_center))
 
         # The expected rhs is:
         # rhorhs  = -2*rho*(r.dot.v)
         # rhoerhs = -rho*v^2*(r.dot.v)
         # rhovrhs = -2*rho*(r.dot.v)*v
-        expterm = self._rhoamp * clmath.exp(1 - r ** 2)
+        expterm = self._rhoamp * actx.np.exp(1 - r ** 2)
         mass = expterm + self._rho0
 
         v = self._velocity * make_obj_array([1.0 / mass])
@@ -340,9 +346,9 @@ class Uniform:
 
         return flat_obj_array(mass, energy, mom)
 
-    def exact_rhs(self, discr, w, t=0.0):
-        queue = w[0].queue
-        nodes = discr.nodes().with_queue(queue)
+    def exact_rhs(self, discr, q, t=0.0):
+        actx = q[0].array_context
+        nodes = thaw(actx, discr.nodes())
         mass = nodes[0].copy()
         mass[:] = 1.0
         massrhs = 0.0 * mass
