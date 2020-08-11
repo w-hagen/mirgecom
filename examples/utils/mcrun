@@ -1,0 +1,22 @@
+#!/bin/bash --login
+
+if [[ -z "$1" ]]
+then
+    echo "Error: no mirgecom python file given."
+
+fi
+ngpu=4
+mcexe=$1
+gpuid=$JSM_NAMESPACE_LOCAL_RANK
+myrank=$JSM_NAMESPACE_RANK
+device_id=$((gpuid+1))
+echo "My MPI rank is: $myrank"
+echo "My Local node rank is: $gpuid"
+echo "My device id is: $device_id"  # 0 is something else, not GPU
+source /usr/workspace/wsa/xpacc/Users/mtcampbe/CEESD/Lassen/conda-install/bin/activate euler.env
+export PYOPENCL_CTX="0:$device_id"
+export XDG_CACHE_HOME="/tmp/xdg_scratch_$gpuid"
+if [[ ! -z "$1" ]]
+then
+    python $1
+fi
