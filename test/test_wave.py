@@ -123,11 +123,9 @@ def sym_wave(dim, sym_phi):
 @pytest.mark.parametrize("problem",
     [
         get_standing_wave(2),
-        get_standing_wave(3),
         get_manufactured_cubic(2),
-        get_manufactured_cubic(3)
     ])
-@pytest.mark.parametrize("order", [2, 3, 4])
+@pytest.mark.parametrize("order", [1])
 def test_wave_accuracy(actx_factory, problem, order, visualize=False):
     """Checks accuracy of the wave operator for a given problem setup.
     """
@@ -140,7 +138,7 @@ def test_wave_accuracy(actx_factory, problem, order, visualize=False):
     from pytools.convergence import EOCRecorder
     eoc_rec = EOCRecorder()
 
-    for n in [8, 10, 12] if dim == 3 else [4, 8, 16]:
+    for n in [4, 8, 16, 24, 36, 48, 64, 80, 128, 184, 256, 512, 1024, 2048]:
         mesh = mesh_factory(n)
 
         from grudge.eager import EagerDGDiscretization
@@ -162,11 +160,15 @@ def test_wave_accuracy(actx_factory, problem, order, visualize=False):
         rhs[0] = rhs[0] + sym_eval(sym_f, t_check)
 
         expected_rhs = sym_eval(sym_rhs, t_check)
+        rhs_err_mag = discr.norm(rhs - expected_rhs, np.inf)
+        exp_mag = discr.norm(expected_rhs, np.inf)
+        rel_error = rhs_err_mag / exp_mag
 
-        rel_linf_err = (
-            discr.norm(rhs - expected_rhs, np.inf)
-            / discr.norm(expected_rhs, np.inf))
-        eoc_rec.add_data_point(1./n, rel_linf_err)
+        #        rel_linf_err = (
+        #            discr.norm(actx.np.abs(rhs - expected_rhs), np.inf)
+        #            / discr.norm(expected_rhs, np.inf))
+
+        eoc_rec.add_data_point(1./n, rel_error)
 
         if visualize:
             from grudge.shortcuts import make_visualizer
@@ -184,6 +186,7 @@ def test_wave_accuracy(actx_factory, problem, order, visualize=False):
     print("Approximation error:")
     print(eoc_rec)
     assert(eoc_rec.order_estimate() >= order - 0.5 or eoc_rec.max_error() < 1e-11)
+    assert(False)
 
 
 @pytest.mark.parametrize(("problem", "timestep_scale"),

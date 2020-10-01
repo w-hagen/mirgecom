@@ -769,7 +769,7 @@ def _euler_flow_stepper(actx, parameters):
     return(maxerr)
 
 
-@pytest.mark.parametrize("order", [1, 2, 3])
+@pytest.mark.parametrize("order", [1])
 def test_isentropic_vortex(actx_factory, order):
     """Advance the 2D isentropic vortex case in
     time with non-zero velocities using an RK4
@@ -787,23 +787,36 @@ def test_isentropic_vortex(actx_factory, order):
     from pytools.convergence import EOCRecorder
 
     eoc_rec = EOCRecorder()
-
+    #    dtbase = .00001
     for nel_1d in [16, 32, 64]:
+
         from meshmode.mesh.generation import (
             generate_regular_rect_mesh,
+            generate_box_mesh
         )
+        #        dtmult = nel_1d / 8
 
-        mesh = generate_regular_rect_mesh(
-            a=(-5.0,) * dim, b=(5.0,) * dim, n=(nel_1d,) * dim
+        #        mesh = generate_regular_rect_mesh(
+        #            a=(-5.0,) * dim, b=(5.0,) * dim, n=(nel_1d,) * dim
+        #        )
+        mesh = generate_box_mesh(
+            (
+                np.linspace(0, 10, nel_1d),
+                np.linspace(-5, 5, nel_1d),
+            )
         )
 
         exittol = 1.0
-        t_final = 0.001
+        t_final = 0.0000001
         cfl = 1.0
         vel = np.zeros(shape=(dim,))
         orig = np.zeros(shape=(dim,))
-        vel[:dim] = 1.0
-        dt = .0001
+        vel[:dim] = 0.0
+        orig[0] = 5.0
+
+        dt = .00001
+        t_final = .0001
+
         initializer = Vortex2D(center=orig, velocity=vel)
         casename = "Vortex"
         boundaries = {BTAG_ALL: PrescribedBoundary(initializer)}
@@ -815,14 +828,15 @@ def test_isentropic_vortex(actx_factory, order):
                       "tfinal": t_final, "exittol": exittol, "cfl": cfl,
                       "constantcfl": False, "nstatus": 0}
         maxerr = _euler_flow_stepper(actx, flowparams)
-        eoc_rec.add_data_point(1.0 / nel_1d, maxerr)
+        eoc_rec.add_data_point(1.0 / (nel_1d - 1), maxerr)
 
     message = (
-        f"Error for (dim,order) = ({dim},{order}):\n"
+        f"EOC({order}):\n"
         f"{eoc_rec}"
     )
-    logger.info(message)
+    print(message)
     assert (
         eoc_rec.order_estimate() >= order - 0.5
         or eoc_rec.max_error() < 1e-11
     )
+    assert(False)
