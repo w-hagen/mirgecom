@@ -788,55 +788,65 @@ def test_isentropic_vortex(actx_factory, order):
 
     eoc_rec = EOCRecorder()
     #    dtbase = .00001
-    for nel_1d in [16, 32, 64]:
-
-        from meshmode.mesh.generation import (
-            generate_regular_rect_mesh,
-            generate_box_mesh
-        )
+    from meshmode.mesh.generation import (
+        generate_regular_rect_mesh,
+        generate_box_mesh
+    )
         #        dtmult = nel_1d / 8
 
         #        mesh = generate_regular_rect_mesh(
         #            a=(-5.0,) * dim, b=(5.0,) * dim, n=(nel_1d,) * dim
         #        )
-        mesh = generate_box_mesh(
-            (
-                np.linspace(0, 10, nel_1d),
-                np.linspace(-5, 5, nel_1d),
-            )
-        )
+    mesh = generate_box_mesh(
+        (
+            np.linspace(0, 10, 5),
+            np.linspace(-5, 5, 5),
+        ),
+        mesh_type="X"
+    )
 
+    for refine_level in [1, 2, 4, 8]:
         exittol = 1.0
-        t_final = 0.0000001
         cfl = 1.0
         vel = np.zeros(shape=(dim,))
         orig = np.zeros(shape=(dim,))
         vel[:dim] = 0.0
         orig[0] = 5.0
-
-        dt = .00001
-        t_final = .0001
-
+        hbase = 10.0 / 4.0
         initializer = Vortex2D(center=orig, velocity=vel)
         casename = "Vortex"
         boundaries = {BTAG_ALL: PrescribedBoundary(initializer)}
         eos = IdealSingleGas()
         t = 0
+        # refine_level = int((nel_1d - 1) / 4)
+        dtbase = .00001
+        h = hbase / float(refine_level)
+        dt = dtbase / float(refine_level)
+        t_final = dtbase
+
+        if refine_level > 1:
+            from meshmode.mesh.refinement import refine_uniformly
+            mesh = refine_uniformly(mesh, 1)
+            #            print(f"mesh={mesh}")
+
         flowparams = {"dim": dim, "dt": dt, "order": order, "time": t,
                       "boundaries": boundaries, "initializer": initializer,
                       "eos": eos, "casename": casename, "mesh": mesh,
                       "tfinal": t_final, "exittol": exittol, "cfl": cfl,
                       "constantcfl": False, "nstatus": 0}
+
         maxerr = _euler_flow_stepper(actx, flowparams)
-        eoc_rec.add_data_point(1.0 / (nel_1d - 1), maxerr)
+        eoc_rec.add_data_point(h, maxerr)
 
     message = (
         f"EOC({order}):\n"
         f"{eoc_rec}"
     )
     print(message)
+
     assert (
         eoc_rec.order_estimate() >= order - 0.5
         or eoc_rec.max_error() < 1e-11
     )
+
     assert(False)

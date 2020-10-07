@@ -72,7 +72,7 @@ class Vortex2D:
     """
 
     def __init__(
-        self, beta=5, center=[0, 0], velocity=[0, 0],
+        self, beta=5.0, center=None, velocity=None,
     ):
         """Initialize vortex parameters.
 
@@ -85,6 +85,11 @@ class Vortex2D:
         velocity : numpy.ndarray
             fixed flow velocity used for exact solution at t != 0, shape ``(2,)``
         """
+        if center is None:
+            center = np.zeros(shape=(2,))
+        if velocity is None:
+            velocity = np.zeros(shape=(2,))
+
         self._beta = beta
         self._center = np.array(center)
         self._velocity = np.array(velocity)
