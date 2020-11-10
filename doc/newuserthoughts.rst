@@ -48,3 +48,11 @@ You can find the exact specifics of each function from their respective document
 
 https://documen.tician.de/grudge/discretization.html?highlight=weak_div#grudge.eager.EagerDGDiscretization
 
+What does what?
+---------------------------
+See this for an overview of what libaries and handling what in mirgecom
+
+What are these loopy kernals?
+---------------------------
+See <refernce> for why we use loopy.
+See <refernce> for examples on how to write a loopy program.
