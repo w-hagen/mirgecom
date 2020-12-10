@@ -6,7 +6,7 @@ Installation
 Easy, see <reference> to install using emirge
 
 
-What it the type of this thing (what are these objects)
+What is the type of this thing (what are these objects)
 ---------------------------
 Objects are great and have a lot of usage hence why they are heavily leveraged in the code.
 However they can be confusing to a new user (especially one also learning a new language--python).
