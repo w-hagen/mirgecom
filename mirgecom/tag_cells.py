@@ -1,4 +1,5 @@
-r""":mod:`mirgecom.tag_cells` Compute element viscosity based on a smoothness indicator.
+r""":mod:`mirgecom.tag_cells` Compute element viscosity based on a smoothness
+ indicator.
 
 Evalutes the smoothness indicator of Persson:
 
@@ -9,14 +10,15 @@ Evalutes the smoothness indicator of Persson:
 
 where:
 - $S_e$ is the smoothness indicator
-- $u_{N_p}$ is the modal representation of the solution at the current polynomial order
+- $u_{N_p}$ is the modal representation of the solution at the current polynomial 
+  order
 - $u_{N_{p-1}}$ is the truncated modal represention to the polynomial order $p-1$
 - The $L_2$ inner product on an element is denoted $\langle \cdot,\cdot \rangle_e$
 
 The elementwise viscoisty is then calculated:
 
 .. math::
-    
+
     \varepsilon_e = \varepsilon_0
         \begin{cases}
             0, & s_e < s_0 - \kappa \\
@@ -24,15 +26,20 @@ The elementwise viscoisty is then calculated:
             & s_0-\kappa \le s_e \le s_0+\kappa \\
             1, & s_e > s_0+\kappa
         \end{cases}
- 
+
 where:
 - $\varepsilon_e$ is the element viscosity
 - $\varepsilon_0 ~\sim h/p$ is a reference viscosity
 - $s_e = \log_{10}{S_e} \sim 1/p^4$ is the smoothness indicator
-- $s_0$ is a reference smoothness value 
+- $s_0$ is a reference smoothness value
 - $\kappa$ controls the width of the transition between 0 to $\varepsilon_0$
 
+Smoothness Indicator Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autofunction:: smoothness_indicator
 """
+
 __copyright__ = """
 Copyright (C) 2020 University of Illinois Board of Trustees
 """

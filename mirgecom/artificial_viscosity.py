@@ -1,4 +1,4 @@
-""":mod:`mirgecom.artificial viscosity` Artificial viscocity for Euler.
+r""":mod:`mirgecom.artificial viscosity` Artificial viscocity for Euler.
 
 Artificial viscosity for the Euler Equations:
 
@@ -24,7 +24,6 @@ RHS Evaluation
 ^^^^^^^^^^^^^^
 
 .. autofunction:: artificial_viscosity
-
 """
 
 __copyright__ = """
