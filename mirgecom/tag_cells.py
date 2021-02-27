@@ -1,5 +1,4 @@
-r""":mod:`mirgecom.tag_cells` Compute element viscosity based on a smoothness
- indicator.
+r""":mod:`mirgecom.tag_cells` Compute smoothness indicator.
 
 Evalutes the smoothness indicator of Persson:
 
@@ -10,7 +9,7 @@ Evalutes the smoothness indicator of Persson:
 
 where:
 - $S_e$ is the smoothness indicator
-- $u_{N_p}$ is the modal representation of the solution at the current polynomial 
+- $u_{N_p}$ is the modal representation of the solution at the current polynomial
   order
 - $u_{N_{p-1}}$ is the truncated modal represention to the polynomial order $p-1$
 - The $L_2$ inner product on an element is denoted $\langle \cdot,\cdot \rangle_e$

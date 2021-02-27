@@ -11,7 +11,8 @@ where:
 -  state $\mathbf{Q} = [\rho, \rho{E}, \rho\vec{V}, \rho{Y}_\alpha]$
 -  artifical viscosity coefficient $\varepsilon$
 
-To evalutate the second order derivative the problem is recast as a set of first order problems:
+To evalutate the second order derivative the problem is recast as a set of first
+ order problems:
 
 .. math::
 
