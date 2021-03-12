@@ -17,10 +17,10 @@ The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS",  WITHOUT WARRANTY OF ANY KIND,  EXPRESS OR
-IMPLIED,  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+IMPLIED,  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,  DAMAGES OR OTHER
-LIABILITY,  WHETHER IN AN ACTION OF CONTRACT,  TORT OR OTHERWISE,  ARISING FROM, 
+LIABILITY,  WHETHER IN AN ACTION OF CONTRACT,  TORT OR OTHERWISE,  ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
@@ -39,7 +39,7 @@ from mirgecom.boundary import DummyBoundary
 from grudge.eager import EagerDGDiscretization
 from pytools.obj_array import flat_obj_array
 from pyopencl.tools import (  # noqa
-    pytest_generate_tests_for_pyopencl as pytest_generate_tests, 
+    pytest_generate_tests_for_pyopencl as pytest_generate_tests,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def test_tag_cells(ctx_factory, dim, order):
     zeros = 0.0*nodes[0]
 
     # test jump discontinuity
-    soln = actx.np.where(nodes[0]>0.0+zeros, 1.0+zeros, zeros)
+    soln = actx.np.where(nodes[0] > 0.0+zeros, 1.0+zeros, zeros)
     err = norm_indicator(1.0, discr, soln)
 
     assert err < tolerance,  "Jump discontinuity should trigger indicator (1.0)"
@@ -107,8 +107,8 @@ def test_tag_cells(ctx_factory, dim, order):
     phi_n_pm1 = np.sqrt(1. - np.power(10, s0))
 
     # pick a polynomial of order n_p, n_p-1
-    n_p = np.array(np.nonzero((np.sum(modes,axis=1)==order))).flat[0]
-    n_pm1 = np.array(np.nonzero((np.sum(modes,axis=1)==order-1))).flat[0]
+    n_p = np.array(np.nonzero((np.sum(modes, axis=1) == order))).flat[0]
+    n_pm1 = np.array(np.nonzero((np.sum(modes, axis=1) == order-1))).flat[0]
 
     # create test soln perturbed around
     # Solution above s0
@@ -120,7 +120,7 @@ def test_tag_cells(ctx_factory, dim, order):
         "A function with an indicator >s0 should trigger indicator")
 
     # Solution below s0
-    ele_soln = ((phi_n_p-eps)*basis[n_p](unit_nodes) 
+    ele_soln = ((phi_n_p-eps)*basis[n_p](unit_nodes)
                 + phi_n_pm1*basis[n_pm1](unit_nodes))
     soln[0].set(np.tile(ele_soln, (nele, 1)))
     err = norm_indicator(0.0, discr, soln, s0=s0, kappa=0.0)
