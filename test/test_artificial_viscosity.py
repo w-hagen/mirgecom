@@ -34,25 +34,16 @@ from meshmode.dof_array import thaw
 from meshmode.mesh import BTAG_ALL
 
 from mirgecom.tag_cells import smoothness_indicator
-from mirgecom.artificial_viscosity import (
-    _facial_flux_r,
-    _facial_flux_q,
-    artificial_viscosity,
-)
+from mirgecom.artificial_viscosity import artificial_viscosity
 from mirgecom.boundary import DummyBoundary
-from grudge.eager import (
-    EagerDGDiscretization,
-    interior_trace_pair,
-)
-from pytools.obj_array import (
-    make_obj_array,
-    flat_obj_array,
-)
+from grudge.eager import EagerDGDiscretization
+from pytools.obj_array import flat_obj_array
 from pyopencl.tools import (  # noqa
     pytest_generate_tests_for_pyopencl as pytest_generate_tests, 
 )
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.mark.parametrize("dim",  [1, 2, 3])
 @pytest.mark.parametrize("order",  [1, 5])
@@ -70,8 +61,8 @@ def test_tag_cells(ctx_factory, dim, order):
     tolerance = 1.e-16
 
     def norm_indicator(expected, discr, soln, **kwargs):
-       return(discr.norm(expected-smoothness_indicator(soln, discr, **kwargs),
-                         np.inf))
+        return(discr.norm(expected-smoothness_indicator(soln, discr, **kwargs),
+                          np.inf))
 
     from meshmode.mesh.generation import generate_regular_rect_mesh
 
@@ -83,7 +74,6 @@ def test_tag_cells(ctx_factory, dim, order):
     nodes = thaw(actx, discr.nodes())
     nele = mesh.nelements
     zeros = 0.0*nodes[0]
-    
 
     # test jump discontinuity
     soln = actx.np.where(nodes[0]>0.0+zeros, 1.0+zeros, zeros)
@@ -93,11 +83,10 @@ def test_tag_cells(ctx_factory, dim, order):
 
     # get meshmode polynomials
     group = discr.discr_from_dd("vol").groups[0]
-    basis = group.basis() # only one group
+    basis = group.basis()  # only one group
     unit_nodes = group.unit_nodes
     modes = group.mode_ids()
     order = group.order
-    weights = group.weights
     
     # loop over modes and check smoothness
     for i, mode in enumerate(modes):
@@ -109,25 +98,26 @@ def test_tag_cells(ctx_factory, dim, order):
             expected = 0.0
         err = norm_indicator(expected, discr, soln)
         assert err < tolerance,  "Only highest modes should trigger indicator (1.0)"
-        
+
     # Test s0
-    s0 = -1. # select arbitrary value
+    s0 = -1.
     eps = 1.0e-6
 
-    phi_Np = np.sqrt(np.power(10, s0)) 
-    phi_Npm1 = np.sqrt(1. - np.power(10, s0))
+    phi_np = np.sqrt(np.power(10, s0))
+    phi_npm1 = np.sqrt(1. - np.power(10, s0))
 
     # create test soln perturbed around
     # Solution above s0
-    ele_soln = ( (phi_Np+eps)*basis[order](unit_nodes) 
-                + phi_Npm1*basis[order-1](unit_nodes) )
+    ele_soln = ((phi_np+eps)*basis[order](unit_nodes) 
+                + phi_npm1*basis[order-1](unit_nodes))
     soln[0].set(np.tile(ele_soln, (nele, 1)))
     err = norm_indicator(1.0, discr, soln, s0=s0, kappa=0.0)
-    assert err < tolerance,  "A function with an indicator >s0 should trigger indicator"
+    assert err < tolerance,  (
+        "A function with an indicator >s0 should trigger indicator"
 
     # Solution below s0
-    ele_soln = ( (phi_Np-eps)*basis[order](unit_nodes) 
-                + phi_Npm1*basis[order-1](unit_nodes) )
+    ele_soln = ((phi_np-eps)*basis[order](unit_nodes) 
+                + phi_npm1*basis[order-1](unit_nodes))
     soln[0].set(np.tile(ele_soln, (nele, 1)))
     err = norm_indicator(0.0, discr, soln, s0=s0, kappa=0.0)
     assert err < tolerance, (
@@ -136,15 +126,15 @@ def test_tag_cells(ctx_factory, dim, order):
     # Test kappa
     # non-perturbed solution
     # test middle value
-    kappa=0.5
-    ele_soln = phi_Np*basis[order](unit_nodes) + phi_Npm1*basis[order-1](unit_nodes)
+    kappa = 0.5
+    ele_soln = phi_np*basis[order](unit_nodes) + phi_npm1*basis[order-1](unit_nodes)
     soln[0].set(np.tile(ele_soln, (nele, 1)))
     err = norm_indicator(0.5, discr, soln, s0=s0, kappa=kappa) 
     assert err < 1.0e-10,  "A function with s_e=s_0 should return 0.5"
 
     # test bounds
     # lower bound
-    shift=1.0e-5
+    shift = 1.0e-5
     err = norm_indicator(0.0, discr, soln, s0=s0+kappa+shift, kappa=kappa)
     assert err < tolerance,  "s_e<s_0-kappa should not trigger indicator"
     err = norm_indicator(0.0, discr, soln, s0=s0+kappa-shift, kappa=kappa)
@@ -157,11 +147,14 @@ def test_tag_cells(ctx_factory, dim, order):
     assert err > tolerance,  "s_e<s_0+kappa should not fully trigger indicator (1.0)"
 
 
-#@pytest.mark.parametrize("dim",  [1,2,3])
-#@pytest.mark.parametrize("order",  [2,3])
-@pytest.mark.parametrize("dim",  [1,2,3])
-@pytest.mark.parametrize("order",  [2,3])
+@pytest.mark.parametrize("dim",  [1, 2, 3])
+@pytest.mark.parametrize("order",  [2, 3])
 def test_artificial_viscosity(ctx_factory, dim, order):
+    """Test artificial_viscosity.
+
+    Tests the application on a few simple functions
+    to confirm artificial viscosity returns the analytical result.
+    """
     cl_ctx = ctx_factory()
     queue = cl.CommandQueue(cl_ctx)
     actx = PyOpenCLArrayContext(queue)
@@ -193,11 +186,10 @@ def test_artificial_viscosity(ctx_factory, dim, order):
                                r=fields, alpha=1.0, s0=-np.inf)
     err = discr.norm(rhs, np.inf)
     assert err < tolerance
-    
+
     # Quadratic field return constant 2
-    fields = flat_obj_array(np.dot(nodes,nodes))
+    fields = flat_obj_array(np.dot(nodes, nodes))
     rhs = artificial_viscosity(discr, t=0, eos=None, boundaries=boundaries,
                                r=fields, alpha=1.0, s0=-np.inf)
     err = discr.norm(2.*dim-rhs, np.inf)
     assert err < tolerance
-
