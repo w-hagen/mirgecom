@@ -78,7 +78,7 @@ def test_tag_cells(ctx_factory, dim, order):
     # test jump discontinuity
     soln = actx.np.where(nodes[0]>0.0+zeros, 1.0+zeros, zeros)
     err = norm_indicator(1.0, discr, soln)
- 
+
     assert err < tolerance,  "Jump discontinuity should trigger indicator (1.0)"
 
     # get meshmode polynomials
@@ -87,7 +87,7 @@ def test_tag_cells(ctx_factory, dim, order):
     unit_nodes = group.unit_nodes
     modes = group.mode_ids()
     order = group.order
-    
+
     # loop over modes and check smoothness
     for i, mode in enumerate(modes):
         ele_soln = basis[i](unit_nodes)
@@ -103,21 +103,25 @@ def test_tag_cells(ctx_factory, dim, order):
     s0 = -1.
     eps = 1.0e-6
 
-    phi_np = np.sqrt(np.power(10, s0))
-    phi_npm1 = np.sqrt(1. - np.power(10, s0))
+    phi_n_p = np.sqrt(np.power(10, s0))
+    phi_n_pm1 = np.sqrt(1. - np.power(10, s0))
+
+    # pick a polynomial of order n_p, n_p-1
+    n_p = np.array(np.nonzero((np.sum(modes,axis=1)==order))).flat[0]
+    n_pm1 = np.array(np.nonzero((np.sum(modes,axis=1)==order-1))).flat[0]
 
     # create test soln perturbed around
     # Solution above s0
-    ele_soln = ((phi_np+eps)*basis[order](unit_nodes) 
-                + phi_npm1*basis[order-1](unit_nodes))
+    ele_soln = ((phi_n_p+eps)*basis[n_p](unit_nodes)
+                + phi_n_pm1*basis[n_pm1](unit_nodes))
     soln[0].set(np.tile(ele_soln, (nele, 1)))
     err = norm_indicator(1.0, discr, soln, s0=s0, kappa=0.0)
     assert err < tolerance,  (
-        "A function with an indicator >s0 should trigger indicator"
+        "A function with an indicator >s0 should trigger indicator")
 
     # Solution below s0
-    ele_soln = ((phi_np-eps)*basis[order](unit_nodes) 
-                + phi_npm1*basis[order-1](unit_nodes))
+    ele_soln = ((phi_n_p-eps)*basis[n_p](unit_nodes) 
+                + phi_n_pm1*basis[n_pm1](unit_nodes))
     soln[0].set(np.tile(ele_soln, (nele, 1)))
     err = norm_indicator(0.0, discr, soln, s0=s0, kappa=0.0)
     assert err < tolerance, (
@@ -127,9 +131,10 @@ def test_tag_cells(ctx_factory, dim, order):
     # non-perturbed solution
     # test middle value
     kappa = 0.5
-    ele_soln = phi_np*basis[order](unit_nodes) + phi_npm1*basis[order-1](unit_nodes)
+    ele_soln = (phi_n_p*basis[n_p](unit_nodes)
+                + phi_n_pm1*basis[n_pm1](unit_nodes))
     soln[0].set(np.tile(ele_soln, (nele, 1)))
-    err = norm_indicator(0.5, discr, soln, s0=s0, kappa=kappa) 
+    err = norm_indicator(0.5, discr, soln, s0=s0, kappa=kappa)
     assert err < 1.0e-10,  "A function with s_e=s_0 should return 0.5"
 
     # test bounds
