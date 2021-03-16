@@ -159,7 +159,8 @@ class AdiabaticSlipBoundary:
         # Form the external boundary solution with the new momentum
         bndry_soln = join_conserved(dim=dim, mass=int_cv.mass,
                                     energy=int_cv.energy,
-                                    momentum=ext_mom)
+                                    momentum=ext_mom,
+                                    species_mass=int_cv.species_mass)
 
         return bndry_soln
 
@@ -177,22 +178,13 @@ class AdiabaticSlipBoundary:
         int_soln = discr.project("vol", btag, q)
         bndry_q = split_conserved(dim, int_soln)
 
-        # create result array to fill
-        result = np.zeros(2+dim, dtype=object)
-
-        # flip signs on mass and energy
-        # to apply a neumann condition on q
-        result[0] = -1.0*bndry_q.mass
-        result[1] = -1.0*bndry_q.energy
-
         # Subtract 2*wall-normal component of q
         # to enforce q=0 on the wall
         # flip remaining components to set a neumann condition
-        from pytools.obj_array import make_obj_array
-        q_mom_normcomp = make_obj_array(
-            [np.outer(normal, np.dot(bndry_q.momentum, normal))[i]
-            for i in range(dim)]
-        )
-        result[2:] = -1*(bndry_q.momentum-2.0*q_mom_normcomp)
+        q_mom_normcomp = np.outer(normal, np.dot(bndry_q.momentum, normal))
+        new_bndry_mom = -1*(bndry_q.momentum-2.0*q_mom_normcomp)
 
-        return(result)
+        return join_conserved(dim=dim, mass=-bndry_q.mass,
+                              energy=-bndry_q.energy,
+                              momentum=new_bndry_mom,
+                              species_mass=-bndry_q.species_mass)

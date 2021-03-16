@@ -87,6 +87,32 @@ def _facial_flux_q(discr, q_tpair):
     return discr.project(q_tpair.dd, "all_faces", flux_out)
 
 
+def _promote(dim, array):
+    """This function promotes a set of nested object arrays
+    of size (:,) and (dims,) to a 2d array of size (:, dims)
+    """
+
+    out = np.zeros((array.shape[0], dim), dtype=object)
+
+    for index, var in enumerate(array):
+        out[index][:] = var
+
+    return out
+
+
+def _demote(dim, array):
+    """This function demotes a 2d object aray of size (:, dims) to
+    a set of nested object arrays of size (:,) and (dims,)
+    """
+
+    out = np.zeros((array.shape[0], ), dtype=object)
+
+    for index, var in enumerate(array):
+        out[index] = var
+
+    return out
+
+
 def artificial_viscosity(discr, t, eos, boundaries, r, alpha, **kwargs):
     r"""Compute artifical viscosity for the euler equations.
 
@@ -186,10 +212,11 @@ def artificial_viscosity(discr, t, eos, boundaries, r, alpha, **kwargs):
             q_tpair = TracePair(btag, interior=sol_int, exterior=sol_ext)
             return _facial_flux_q(discr, q_tpair=q_tpair)
 
-        q_ext = boundaries[btag].av(discr, btag=btag, t=t, q=q, eos=eos)
+        q_ext = boundaries[btag].av(discr, btag=btag, t=t, q=_promote(discr.dim, q),
+                                    eos=eos)
         q_int = discr.project("vol", btag, q)
         dbf_q = dbf_q + obj_array_vectorize_n_args(
-            my_facialflux_q_boundary, q_ext, q_int
+            my_facialflux_q_boundary, _demote(discr.dim, q_ext), q_int
         )
 
     # Return the rhs contribution
