@@ -87,11 +87,12 @@ def _facial_flux_q(discr, q_tpair):
     return discr.project(q_tpair.dd, "all_faces", flux_out)
 
 
-def _promote(dim, array):
-    """This function promotes a set of nested object arrays
-    of size (:,) and (dims,) to a 2d array of size (:, dims)
-    """
+def _promte(dim, array):
+    """Promotes a set of nested object arrays to a 2d object.
 
+    Convertes a set of nested objet arrays of size (:,) and (dims,)
+    to a 2d array of size (:, dims)
+    """
     out = np.zeros((array.shape[0], dim), dtype=object)
 
     for index, var in enumerate(array):
@@ -101,10 +102,11 @@ def _promote(dim, array):
 
 
 def _demote(dim, array):
-    """This function demotes a 2d object aray of size (:, dims) to
+    """Demotes a 2d object array to a set of nested objects.
+
+    Convertes a 2d object array of size (:, dims) to
     a set of nested object arrays of size (:,) and (dims,)
     """
-
     out = np.zeros((array.shape[0], ), dtype=object)
 
     for index, var in enumerate(array):
