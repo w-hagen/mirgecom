@@ -87,7 +87,7 @@ def _facial_flux_q(discr, q_tpair):
     return discr.project(q_tpair.dd, "all_faces", flux_out)
 
 
-def _promte(dim, array):
+def _promote(dim, array):
     """Promotes a set of nested object arrays to a 2d object.
 
     Convertes a set of nested objet arrays of size (:,) and (dims,)
