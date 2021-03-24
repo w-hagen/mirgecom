@@ -196,3 +196,69 @@ class AdiabaticSlipBoundary:
         result[2:] = -1*(bndry_q.momentum-2.0*q_mom_normcomp)
 
         return(result)
+
+class AdiabaticNoslipBoundary:
+    r"""Boundary condition implementing a noslip boundary.
+
+    .. automethod:: boundary_pair
+    """
+
+    def boundary_pair(self, discr, q, btag, **kwargs):
+        """Get the interior and exterior solution on the boundary."""
+        bndry_soln = self.exterior_soln(discr, q, btag, **kwargs)
+        int_soln = discr.project("vol", btag, q)
+
+        return TracePair(btag, interior=int_soln, exterior=bndry_soln)
+
+    def exterior_soln(self, discr, q, btag, **kwargs):
+        """Get the exterior solution on the boundary.
+
+        """
+        # Grab some boundary-relevant data
+        dim = discr.dim
+        cv = split_conserved(dim, q)
+        actx = cv.mass.array_context
+
+        # Grab a unit normal to the boundary
+        nhat = thaw(actx, discr.normal(btag))
+
+        # Get the interior/exterior solns
+        int_soln = discr.project("vol", btag, q)
+        int_cv = split_conserved(dim, int_soln)
+
+        # This does not consider moving walls
+        # Set the exterior momentum to the negative of interior
+        # such that the velocity at the wall = 0
+        ext_mom = -int_cv.momentum  # prescribed ext momentum
+
+        # Form the external boundary solution with the new momentum
+        bndry_soln = join_conserved(dim=dim, mass=int_cv.mass,
+                                    energy=int_cv.energy,
+                                    momentum=ext_mom)
+
+        return bndry_soln
+
+    def av(self, discr, q, btag, **kwargs):
+        """Get the exterior solution on the boundary."""
+        # Grab some boundary-relevant data
+        dim = discr.dim
+        cv = split_conserved(dim, q)
+        actx = cv.mass[0].array_context
+
+        # Grab a unit normal to the boundary
+        normal = thaw(actx, discr.normal(btag))
+
+        # Get the interior soln
+        int_soln = discr.project("vol", btag, q)
+        bndry_q = split_conserved(dim, int_soln)
+
+        # create result array to fill
+        result = np.zeros(2+dim, dtype=object)
+
+        # flip signs on mass and energy
+        # to apply a neumann condition on q
+        result[0] = -1.0*bndry_q.mass
+        result[1] = -1.0*bndry_q.energy
+        result[2:] = -1.0*bndry_q.momentum
+
+        return(result)
