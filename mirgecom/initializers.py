@@ -319,10 +319,7 @@ class DoubleMachReflection:
         self._shock_speed = shock_speed
 
     def __call__(self, x_vec, *, t=0, eos=IdealSingleGas()):
-        r"""
-        Create the initial condition for the double Mach reflection case at
-        locations *x_vec*. Also provides boundary conditions for solution at
-        times $t>0$.
+        r"""Create the double mach reflection solution at locations *x_vec*.
 
         Parameters
         ----------
