@@ -1,5 +1,4 @@
-r""":mod:`mirgecom.artificial_viscosity` Artificial viscosity for hyperbolic
-conservation laws.
+r""":mod:`mirgecom.artificial_viscosity` Artificial viscosity for hyperbolic systems.
 
 Consider the following system of conservation laws of the form:
 
