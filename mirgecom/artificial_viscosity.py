@@ -103,6 +103,7 @@ from grudge.symbolic.primitives import TracePair
 from grudge.dof_desc import DD_VOLUME_MODAL, DD_VOLUME
 
 
+# FIXME: Remove when get_array_container_context is added to meshmode
 def _get_actx(obj):
     if isinstance(obj, TracePair):
         return _get_actx(obj.int)
