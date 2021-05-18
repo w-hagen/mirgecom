@@ -378,7 +378,7 @@ class AdiabaticSlipBoundary(PrescribedInviscidBoundary):
         int_soln = discr.project("vol", btag, q)
         int_cv = split_conserved(dim, int_soln)
 
-        # Subtract out the 2*wall-normal component
+        # Sutract out the 2*wall-normal component
         # of velocity from the velocity at the wall to
         # induce an equal but opposite wall-normal (reflected) wave
         # preserving the tangential component
@@ -419,13 +419,12 @@ class AdiabaticNoslipMovingBoundary(PrescribedInviscidBoundary):
 
     .. automethod:: boundary_pair
     """
-    def __init__(self, Vw=0.0, norm_wall=[1.0,0.0,0.0]):
+    def __init__(self, Vw=0.0):
         PrescribedInviscidBoundary.__init__(
             self, boundary_pair_func=self.adiabatic_noslip_pair,
             fluid_solution_gradient_func=self.exterior_grad_q
         )
         self._Vw = Vw
-        self._norm_wall = norm_wall
 
     def adiabatic_noslip_pair(self, discr, q, btag, **kwargs):
         """Get the interior and exterior solution on the boundary."""
@@ -446,28 +445,13 @@ class AdiabaticNoslipMovingBoundary(PrescribedInviscidBoundary):
         # Grab a unit normal to the boundary
         nhat = thaw(actx, discr.normal(btag))
 
-        # Get in wall plane vector
-        what = 0.0*nhat
-        for index,wdir in enumerate(what):
-            wdir += self._norm_wall[index]
-
         # Get the interior/exterior solns
         int_soln = discr.project("vol", btag, q)
         int_cv = split_conserved(dim, int_soln)
 
-        # Get wall normal and in-plane components
-        mom_normcomp = np.dot(int_cv.momentum, nhat)  # wall-normal component
-        wnorm_mom = nhat * mom_normcomp  # wall-normal mom vec
-        inplane_mom = int_cv.momentum - wnorm_mom # in-plane mom vec
-
-        # Resolve in-plane component to specified direction
-        mom_inplane_resolve_comp = np.dot(inplane_mom, what)
-        mom_inplane_resolve = what * mom_inplane_resolve_comp
-
         # Compute momentum solution
-        ext_mom = - wnorm_mom  # no-penetration
-        wall_pen = 2.0*self._Vw*what*int_cv.mass
-        ext_mom += wall_pen - inplane_mom # no-slip
+        wall_pen = 2.0*self._Vw*int_cv.mass
+        ext_mom = wall_pen - int_cv.momentum # no-slip
 
         # Form the external boundary solution with the new momentum
         bndry_soln = join_conserved(dim=dim, mass=int_cv.mass,
