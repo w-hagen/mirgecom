@@ -413,6 +413,73 @@ class AdiabaticSlipBoundary(PrescribedInviscidBoundary):
                               species_mass=-gradq_comp.species_mass)
 
 
+
+class AdiabaticNoslipMovingBoundary(PrescribedInviscidBoundary):
+    r"""Boundary condition implementing a noslip moving boundary.
+
+    .. automethod:: boundary_pair
+    """
+    def __init__(self, Vw=0.0, norm_wall=[1.0,0.0,0.0]):
+        PrescribedInviscidBoundary.__init__(
+            self, boundary_pair_func=self.adiabatic_noslip_pair,
+            fluid_solution_gradient_func=self.exterior_grad_q
+        )
+        self._Vw = Vw
+        self._norm_wall = norm_wall
+
+    def adiabatic_noslip_pair(self, discr, q, btag, **kwargs):
+        """Get the interior and exterior solution on the boundary."""
+        bndry_soln = self.exterior_soln(discr, q, btag, **kwargs)
+        int_soln = discr.project("vol", btag, q)
+
+        return TracePair(btag, interior=int_soln, exterior=bndry_soln)
+
+    def exterior_soln(self, discr, q, btag, **kwargs):
+        """Get the exterior solution on the boundary.
+
+        """
+        # Grab some boundary-relevant data
+        dim = discr.dim
+        cv = split_conserved(dim, q)
+        actx = cv.mass.array_context
+
+        # Grab a unit normal to the boundary
+        nhat = thaw(actx, discr.normal(btag))
+
+        # Get in wall plane vector
+        what = 0.0*nhat
+        for index,wdir in enumerate(what):
+            wdir += self._norm_wall[index]
+
+        # Get the interior/exterior solns
+        int_soln = discr.project("vol", btag, q)
+        int_cv = split_conserved(dim, int_soln)
+
+        # Get wall normal and in-plane components
+        mom_normcomp = np.dot(int_cv.momentum, nhat)  # wall-normal component
+        wnorm_mom = nhat * mom_normcomp  # wall-normal mom vec
+        inplane_mom = int_cv.momentum - wnorm_mom # in-plane mom vec
+
+        # Resolve in-plane component to specified direction
+        mom_inplane_resolve_comp = np.dot(inplane_mom, what)
+        mom_inplane_resolve = what * mom_inplane_resolve_comp
+
+        # Compute momentum solution
+        ext_mom = - wnorm_mom  # no-penetration
+        wall_pen = 2.0*self._Vw*what*int_cv.mass
+        ext_mom += wall_pen - inplane_mom # no-slip
+
+        # Form the external boundary solution with the new momentum
+        bndry_soln = join_conserved(dim=dim, mass=int_cv.mass,
+                                    energy=int_cv.energy,
+                                    momentum=ext_mom)
+
+        return bndry_soln
+
+    def exterior_grad_q(self, nodes, nhat, grad_q, **kwargs):
+        """Get the exterior solution on the boundary."""
+        return(-grad_q)
+
 class IsothermalNoSlipBoundary(FluidBC):
     r"""Isothermal no-slip viscous wall boundary.
 
