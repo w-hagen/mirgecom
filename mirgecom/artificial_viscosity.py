@@ -291,12 +291,11 @@ def smoothness_indicator(discr, u, kappa=1.0, s0=-6.0):
         from meshmode.array_context import make_loopy_program
         return make_loopy_program([
             "{[iel]: 0 <= iel < nelements}",
-            "{[idof]: 0 <= idof < ndiscr_nodes_in}",
             "{[jdof]: 0 <= jdof < ndiscr_nodes_in}",
             "{[kdof]: 0 <= kdof < ndiscr_nodes_in}"
             ],
             """
-                result[iel,idof] = sum(kdof, vec[iel, kdof]               \
+                result[iel] = sum(kdof, vec[iel, kdof]               \
                                              * vec[iel, kdof]             \
                                              * modes_active_flag[kdof]) / \
                                    sum(jdof, vec[iel, jdof]               \
@@ -331,6 +330,7 @@ def smoothness_indicator(discr, u, kappa=1.0, s0=-6.0):
             for grp in discr.discr_from_dd("vol").groups
         )
     )
+
     indicator = actx.np.log10(indicator + 1.0e-12)
 
     # Compute artificial viscosity percentage based on indicator and set parameters
@@ -343,4 +343,18 @@ def smoothness_indicator(discr, u, kappa=1.0, s0=-6.0):
     )
     indicator = actx.np.where(yesnou, 1.0 + 0.0 * indicator, sin_indicator)
 
-    return indicator
+    from meshmode.array_context import FirstAxisIsElementsTag
+    ones = discr.zeros(actx)+1.0
+    indicator_ndofs = DOFArray(
+        actx,
+        tuple(
+            actx.einsum("e,ej->ej",
+                indicator,
+                ones,
+                arg_names=("indicator","vec"),
+                tagged=(FirstAxisIsElementsTag(),))["out"]
+            for grp in discr.discr_from_dd("vol").groups
+        )
+    )
+    
+    return indicator_ndofs
