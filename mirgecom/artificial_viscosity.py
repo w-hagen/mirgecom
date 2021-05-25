@@ -357,4 +357,4 @@ def smoothness_indicator(discr, u, kappa=1.0, s0=-6.0):
         )
     )
     
-    return indicator_full
+    return indicator_ndofs
