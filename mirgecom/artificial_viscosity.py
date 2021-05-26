@@ -343,17 +343,21 @@ def smoothness_indicator(discr, u, kappa=1.0, s0=-6.0):
     )
     indicator = actx.np.where(yesnou, 1.0 + 0.0 * indicator, sin_indicator)
 
+    # Ensure the indicator value (per element) is applied to each nodal
+    # location in each element group
     from meshmode.array_context import FirstAxisIsElementsTag
     ones = discr.zeros(actx)+1.0
     indicator_ndofs = DOFArray(
         actx,
         tuple(
             actx.einsum("e,ej->ej",
-                indicator,
-                ones,
-                arg_names=("indicator","vec"),
-                tagged=(FirstAxisIsElementsTag(),))["out"]
-            for grp in discr.discr_from_dd("vol").groups
+                ind_i,
+                ones_i,
+                arg_names=("indicator", "vec"),
+                tagged=(FirstAxisIsElementsTag(),))
+            for grp, ind_i, ones_i in zip(discr.discr_from_dd("vol").groups,
+                                          indicator,
+                                          ones)
         )
     )
     
